@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -56,11 +55,8 @@ func runPokemonsFn() CobraFn {
 			response, _ := http.Get(url)
 			body, _ := ioutil.ReadAll(response.Body)
 			json.Unmarshal(body, &pokemon)
-			fmt.Println(pokemon)
-			csvFile, err := os.Create("pokemon.csv")
-			if err != nil {
-				log.Fatalf("failed creating file: %s", err)
-			}
+			os.MkdirAll("data", 0700)
+			csvFile, _ := os.Create("data/pokemon.csv")
 			csvwriter := csv.NewWriter(csvFile)
 			csvInfo := []string{
 				strconv.Itoa(pokemon.ID), pokemon.Name, strconv.Itoa(pokemon.Order),
