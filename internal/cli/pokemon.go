@@ -2,12 +2,10 @@ package cli
 
 import (
 	"encoding/csv"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"strconv"
+
+	pokemonscli "github.com/sdecandelario/poke-api-cli/internal"
 
 	"github.com/spf13/cobra"
 )
@@ -17,55 +15,45 @@ type CobraFn func(cmd *cobra.Command, args []string)
 
 const idFlag = "id"
 const nameFlag = "name"
+const fileNameFlag = "filename"
 
 // InitPokemonCmd initialize pokemon command
-func InitPokemonCmd() *cobra.Command {
+func InitPokemonCmd(repository pokemonscli.PokemonRepo) *cobra.Command {
 	pokemonCmd := &cobra.Command{
 		Use:   "pokemons",
 		Short: "Print data about pokemons",
-		Run:   runPokemonsFn(),
+		Run:   runPokemonsFn(repository),
 	}
 
-	pokemonCmd.Flags().StringP(idFlag, "i", "", "ID of the pokemon")
+	pokemonCmd.Flags().IntP(idFlag, "i", 0, "ID of the pokemon")
 	pokemonCmd.Flags().StringP(nameFlag, "n", "", "Name of the pokemon")
+	pokemonCmd.Flags().StringP(fileNameFlag, "f", "pokemon.csv", "Name of csv file")
 
 	return pokemonCmd
 }
 
-// Pokemon representation of a Pokemon
-type Pokemon struct {
-	Name  string `json:"name"`
-	ID    int    `json:"id"`
-	Order int    `json:"order"`
-}
-
-func runPokemonsFn() CobraFn {
+func runPokemonsFn(repository pokemonscli.PokemonRepo) CobraFn {
 	return func(cmd *cobra.Command, args []string) {
-		id, _ := cmd.Flags().GetString(idFlag)
+		id, _ := cmd.Flags().GetInt(idFlag)
 		name, _ := cmd.Flags().GetString(nameFlag)
+		filename, _ := cmd.Flags().GetString(fileNameFlag)
 
-		if id != "" || name != "" {
-			var pokemon Pokemon
-			var url string
-			if id != "" {
-				url = fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", id)
-			} else {
-				url = fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", name)
-			}
-			response, _ := http.Get(url)
-			body, _ := ioutil.ReadAll(response.Body)
-			json.Unmarshal(body, &pokemon)
-			os.MkdirAll("data", 0700)
-			csvFile, _ := os.Create("data/pokemon.csv")
-			csvwriter := csv.NewWriter(csvFile)
-			csvInfo := []string{
-				strconv.Itoa(pokemon.ID), pokemon.Name, strconv.Itoa(pokemon.Order),
-			}
-			_ = csvwriter.Write(csvInfo)
-			csvwriter.Flush()
-			csvFile.Close()
+		var pokemon pokemonscli.Pokemon
+
+		if name != "" {
+			pokemon, _ = repository.GetPokemonByName(name)
 		} else {
-			fmt.Println("no number")
+			pokemon, _ = repository.GetPokemonByID(id)
 		}
+
+		os.MkdirAll("data", 0700)
+		csvFile, _ := os.Create("data/" + filename)
+		csvwriter := csv.NewWriter(csvFile)
+		csvInfo := []string{
+			strconv.Itoa(pokemon.ID), pokemon.Name, strconv.Itoa(pokemon.Order),
+		}
+		_ = csvwriter.Write(csvInfo)
+		csvwriter.Flush()
+		csvFile.Close()
 	}
 }
